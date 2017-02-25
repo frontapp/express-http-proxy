@@ -324,7 +324,7 @@ function zipOrUnzip(method) {
 
 function maybeParseBody(req, limit) {
   var promise;
-  if (req.body) {
+  if (req._body && req.body) {
     promise = new Promise(function(resolve) {
       resolve(req.body);
     });
