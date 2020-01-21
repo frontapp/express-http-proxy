@@ -30,6 +30,7 @@ module.exports = function proxy(host, options) {
   var limit = options.limit || '1mb';
   var preserveReqSession = options.preserveReqSession;
   var memoizeHost = unset(options.memoizeHost) ? true : options.memoizeHost;
+  var rejectUnauthorized = !options.skipCertificateValidation;
 
   return function handleProxy(req, res, next) {
     if (!filter(req, res)) { return next(); }
@@ -54,6 +55,7 @@ module.exports = function proxy(host, options) {
       path: path,
       bodyContent: bodyContent,
       params: req.params,
+      rejectUnauthorized
     };
 
     if (preserveReqSession) {
