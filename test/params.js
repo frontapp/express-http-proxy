@@ -8,16 +8,13 @@ var proxy = require('../');
 var proxyTarget = require('../test/support/proxyTarget');
 var proxyRouteFn = [{
   method: 'get',
-  path: '/cookieTest',
+  path: '/test',
   fn: function (req, res) {
-    Object.keys(req.cookies).forEach(function (key) {
-      res.cookie(key, req.cookies[key]);
-    });
-    res.sendStatus(200);
+    res.send(req.url);
   }
 }];
 
-describe('proxies cookie', function () {
+describe('proxies query parameters', function () {
   this.timeout(10000);
 
   var app;
@@ -33,15 +30,11 @@ describe('proxies cookie', function () {
     proxyServer.close();
   });
 
-  it('set cookie', function (done) {
+  it('repeats query params to proxy server', function (done) {
     request(app)
-      .get('/cookieTest')
-      .set('Cookie', 'myApp-token=12345667')
+      .get('/test?a=1&b=2&c=3')
       .end(function (err, res) {
-        var cookiesMatch = res.headers['set-cookie'].filter(function (item) {
-          return item.match(/myApp-token=12345667/);
-        });
-        assert(cookiesMatch);
+        assert.equal(res.text, '/test?a=1&b=2&c=3');
         done(err);
       });
   });
