@@ -1,6 +1,6 @@
 {
   "name": "front-express-http-proxy",
-  "version": "1.6.2-1",
+  "version": "1.6.2-2",
   "description": "http proxy middleware for express",
   "engines": {
     "node": ">=6.0.0"
@@ -40,6 +40,7 @@
   "dependencies": {
     "debug": "^3.0.1",
     "es6-promise": "^4.1.1",
+    "qs": "^6.9.6",
     "raw-body": "^2.3.0"
   },
   "contributors": [
