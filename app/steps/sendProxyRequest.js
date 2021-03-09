@@ -1,5 +1,7 @@
 'use strict';
 
+const qs = require('qs');
+
 var chunkLength = require('../../lib/chunkLength');
 
 function sendProxyRequest(Container) {
@@ -54,7 +56,7 @@ function sendProxyRequest(Container) {
         if (contentType === 'x-www-form-urlencoded' || contentType === 'application/x-www-form-urlencoded') {
           try {
             var params = JSON.parse(body);
-            body = Object.keys(params).map(function(k) { return k + '=' + params[k]; }).join('&');
+            body = qs.stringify(params);
           } catch (e) {
             // bodyContent is not json-format
           }
