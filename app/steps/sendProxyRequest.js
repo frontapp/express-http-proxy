@@ -71,8 +71,8 @@ function sendProxyRequest(Container) {
     }
 
     req.on('aborted', function() {
-    // reject?
       proxyReq.abort();
+      reject();
     });
   });
 }
