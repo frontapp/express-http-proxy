@@ -5,16 +5,17 @@ var express = require('express');
 var http = require('http');
 var request = require('supertest');
 var proxy = require('../');
-var proxyTarget = require('../test/support/proxyTarget');
+var proxyTarget = require('./support/proxyTarget');
+var TIMEOUT = require('./constants');
 
 var aliases = ['forwardPath', 'forwardPathAsync', 'proxyReqPathResolver'];
 
 describe('resolveProxyReqPath', function () {
   var server;
 
-  this.timeout(10000);
+  this.timeout(TIMEOUT.STANDARD);
 
-  before(function () {
+  beforeEach(function () {
     var handlers = [{
       method: 'get',
       path: '/working',
@@ -26,8 +27,8 @@ describe('resolveProxyReqPath', function () {
     server = proxyTarget(12345, 100, handlers);
   });
 
-  after(function () {
-    server.close();
+  afterEach(async () => {
+    await server.close();
   });
 
   aliases.forEach(function (alias) {

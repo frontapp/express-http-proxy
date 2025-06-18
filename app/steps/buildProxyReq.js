@@ -15,11 +15,16 @@ function buildProxyReq(Container) {
 
   return Promise
     .all([parseBody, createReqOptions])
-    .then(function(responseArray) {
+    .then(function (responseArray) {
+      req.body = responseArray[0];
       Container.proxy.bodyContent = responseArray[0];
       Container.proxy.reqBuilder = responseArray[1];
       debug('proxy request options:', Container.proxy.reqBuilder);
       return Container;
+    })
+    .catch(function (err) {
+      debug('error occurred while building proxy request:', err);
+      return Promise.reject(err);
     });
 }
 

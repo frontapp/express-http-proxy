@@ -4,17 +4,11 @@ var assert = require('assert');
 var express = require('express');
 var request = require('supertest');
 var proxy = require('../');
+var TIMEOUT = require('./constants');
 
-describe('when userResHeaderDecorator is defined', function () {
-
-  this.timeout(10000);
-
+describe('userResHeaderDecorator', function () {
   var app;
-  var  serverReference;
-
-  afterEach(function () {
-    serverReference.close();
-  });
+  var serverReference;
 
   beforeEach(function () {
     app = express();
@@ -31,47 +25,84 @@ describe('when userResHeaderDecorator is defined', function () {
     serverReference.close();
   });
 
-  it('can delete a header', function (done) {
+  describe('header modification', function () {
+    it('can remove headers from the response', function (done) {
+      app.use('/proxy', proxy('http://127.0.0.1:12345', {
+        userResHeaderDecorator: function (headers) {
+          delete headers['x-my-secret-header'];
+          return headers;
+        }
+      }));
 
-    app.use('/proxy', proxy('http://127.0.0.1:12345', {
-      userResHeaderDecorator: function (headers /*, userReq, userRes, proxyReq, proxyRes */) {
-        delete headers['x-my-secret-header'];
-        return headers;
-      }
-    }));
-
-    app.use(function (req, res) {
-      res.sendStatus(200);
+      request(app)
+        .get('/proxy')
+        .expect(function (res) {
+          assert(Object.keys(res.headers).indexOf('x-my-not-so-secret-header') > -1);
+          assert(Object.keys(res.headers).indexOf('x-my-secret-header') === -1);
+        })
+        .end(done);
     });
 
-    request(app)
-      .get('/proxy')
-      .expect(function (res) {
-        assert(Object.keys(res.headers).indexOf('x-my-not-so-secret-header') > -1);
-        assert(Object.keys(res.headers).indexOf('x-my-secret-header') === -1);
-      })
-      .end(done);
+    it('can add new headers to the response', function (done) {
+      app.use('/proxy', proxy('http://127.0.0.1:12345', {
+        userResHeaderDecorator: function (headers) {
+          headers.boltedonheader = 'franky';
+          return headers;
+        }
+      }));
+
+      request(app)
+        .get('/proxy')
+        .expect(function (res) {
+          assert(res.headers.boltedonheader === 'franky');
+        })
+        .end(done);
+    });
   });
 
-  it('provides an interface for updating headers', function (done) {
+  describe('header proxying', function () {
+    it('can copy request headers to response with new names', function (done) {
+      app.use('/proxy', proxy('http://127.0.0.1:12345', {
+        userResHeaderDecorator: function (headers, userReq) {
+          if (userReq.headers['x-custom-header']) {
+            headers['x-proxied-custom-header'] = userReq.headers['x-custom-header'];
+          }
+          if (userReq.headers['x-user-agent']) {
+            headers['x-proxied-user-agent'] = userReq.headers['x-user-agent'];
+          }
+          return headers;
+        }
+      }));
 
-    app.use('/proxy', proxy('http://127.0.0.1:12345', {
-      userResHeaderDecorator: function (headers /*, userReq, userRes, proxyReq, proxyRes */) {
-        headers.boltedonheader = 'franky';
-        return headers;
-      }
-    }));
-
-    app.use(function (req, res) {
-      res.sendStatus(200);
+      request(app)
+        .get('/proxy')
+        .set('x-custom-header', 'custom-value')
+        .set('x-user-agent', 'test-agent')
+        .expect(function (res) {
+          assert.equal(res.headers['x-proxied-custom-header'], 'custom-value');
+          assert.equal(res.headers['x-proxied-user-agent'], 'test-agent');
+        })
+        .end(done);
     });
 
-    request(app)
-      .get('/proxy')
-      .expect(function (res) {
-        assert(res.headers.boltedonheader === 'franky');
-      })
-      .end(done);
-  });
+    it('can copy request headers to response with same names', function (done) {
+      app.use('/proxy', proxy('http://127.0.0.1:12345', {
+        userResHeaderDecorator: function (headers, userReq) {
+          headers['x-copied-header-1'] = userReq.headers['x-copied-header-1'];
+          headers['x-copied-header-2'] = userReq.headers['x-copied-header-2'];
+          return headers;
+        }
+      }));
 
+      request(app)
+        .get('/proxy')
+        .set('x-copied-header-1', 'value1')
+        .set('x-copied-header-2', 'value2')
+        .expect(function (res) {
+          assert.equal(res.headers['x-copied-header-1'], 'value1');
+          assert.equal(res.headers['x-copied-header-2'], 'value2');
+        })
+        .end(done);
+    });
+  });
 });

@@ -1,4 +1,4 @@
-# express-http-proxy [![NPM version](https://badge.fury.io/js/express-http-proxy.svg)](http://badge.fury.io/js/express-http-proxy) [![Build Status](https://travis-ci.org/villadora/express-http-proxy.svg?branch=master)](https://travis-ci.org/villadora/express-http-proxy) 
+# express-http-proxy [![NPM version](https://badge.fury.io/js/express-http-proxy.svg)](http://badge.fury.io/js/express-http-proxy) [![Build Status](https://travis-ci.org/villadora/express-http-proxy.svg?branch=master)](https://travis-ci.org/villadora/express-http-proxy)
 
 
 Express middleware to proxy request to another host and pass response back to original caller.
@@ -22,6 +22,51 @@ var proxy = require('express-http-proxy');
 var app = require('express')();
 
 app.use('/proxy', proxy('www.google.com'));
+```
+
+### 30k view
+
+The proxy middleware:
+* proxies request to your server to an arbitrary server, and
+* provide hooks to decorate and filter requests to the proxy target, and
+* provide hooks you to decorate and filter proxy responses before returning them to the client.
+
+```
+
+Client                    Express App                Proxy Middleware                Target Server
+  |                           |                            |                             |
+  | HTTP Request              |                            |                             |
+  |-------------------------->|                            |                             |
+  |                           | Request                    |                             |
+  |                           |--------------------------->|                             |
+  |                           |                            | +------------------------+  |
+  |                           |                            | | Request Preprocessing  |  |
+  |                           |                            | | 1. filter requests     |  |
+  |                           |                            | | 2. resolve proxy host  |  |
+  |                           |                            | | 3. decorate proxy opts |  |
+  |                           |                            | | 4. decorate proxy req  |  |
+  |                           |                            | | 5. resolve req path    |  |
+  |                           |                            | +------------------------+  |
+  |                           |                            | Forwarded Request           |
+  |                           |                            |---------------------------->|
+  |                           |                            |                             |
+  |                           |                            | Response with Headers       |
+  |                           |                            |<----------------------------|
+  |                           |                            |                             |
+  |                           |                            | +------------------------+  |
+  |                           |                            | | Response Processing    |  |
+  |                           |                            | | 1. skip to next?       |  |
+  |                           |                            | | 2. copy proxy headers  |  |
+  |                           |                            | | 3. decorate headers    |  |
+  |                           |                            | | 4. decorate response   |  |
+  |                           |                            | +------------------------+  |
+  |                           |                            |                             |
+  |                           | Modified Response          |                             |
+  |                           |<---------------------------|                             |
+  | Final Response            |                            |                             |
+  |<--------------------------|                            |                             |
+  |                           |                            |                             |
+
 ```
 
 ### Streaming
@@ -73,17 +118,34 @@ function selectProxyHost() {
 
 app.use('/', proxy(selectProxyHost));
 ```
+
+Notie: Host is only the host name. Any params after in url will be ignored. For ``http://google.com/myPath`, ``myPath`` will be ignored because the host name is ``google.com``.
+See ``proxyReqPathResolver`` for more detailed path information.
+
+
 ### Middleware mixing
 
 If you use 'https://www.npmjs.com/package/body-parser' you should declare it AFTER the proxy configuration, otherwise  original 'POST' body could be modified and not proxied correctly.
 
-```
-
-app.use('/proxy', 'http://foo.bar.com')
+```js
+app.use('/proxy', proxy('http://foo.bar.com'))
 
 // Declare use of body-parser AFTER the use of proxy
 app.use(bodyParser.foo(bar))
 app.use('/api', ...)
+```
+
+If this cannot be avoided and you MUST proxy after `body-parser` has been registered, set `parseReqBody` to `false` and explicitly specify the body you wish to send in `proxyReqBodyDecorator`.
+
+```js
+app.use(bodyParser.foo(bar))
+
+app.use('/proxy', proxy('http://foo.bar.com', {
+  parseReqBody: false,
+  proxyReqBodyDecorator: function () {
+
+  },
+}))
 ```
 
 ### Options
@@ -155,17 +217,17 @@ Promise form:
 
 ```js
   app.use(proxy('localhost:12346', {
-    filter: function (req, res) { 
-      return new Promise(function (resolve) { 
+    filter: function (req, res) {
+      return new Promise(function (resolve) {
         resolve(req.method === 'GET');
-      }); 
+      });
     }
   }));
 ```
 
 Note that in the previous example, `resolve(false)` will execute the happy path
 for filter here (skipping the rest of the proxy, and calling `next()`).
-`reject()` will also skip the rest of proxy and call `next()`. 
+`reject()` will also skip the rest of proxy and call `next()`.
 
 #### userResDecorator (was: intercept) (supports Promise)
 
@@ -258,6 +320,11 @@ first request.
 ### userResHeaderDecorator
 
 When a `userResHeaderDecorator` is defined, the return of this method will replace (rather than be merged on to) the headers for `userRes`.
+
+> Note that by default, headers from the PROXY response CLOBBER all headers that may have previously been set on the userResponse.
+> Authors have the option of constructing any combination of proxyRes and userRes headers in the `userResHeaderDecorator`.
+> Check the tests for this method for examples.
+
 
 ```js
 app.use('/proxy', proxy('www.google.com', {
@@ -588,14 +655,20 @@ app.use('/', proxy('internalhost.example.com', {
 
 | Release | Notes |
 | --- | --- |
+| next | Fixes => content-length request header is removed when parseReqBody is false (#549) |
+| 2.1.1 | (trivial) Fixes formatting in README.|
+| 2.1.0 | Fixes parsing error in content-types. Improves behavior of proxyReqBodyDecorator when parseReqBody=false. Repairs issue where authors can't use proxy() twice in Express middleware stack.  Fix `new Buffer` deprecation warning. |
+| 2.0.0 | Update all dependencies; set stage for next iteration. `express-http-proxy` interface has not changed, but the underlying libraries are not guaranteed to be backward compatible. Versions beyond this point are expected to be run in node verions >= 16. |
+| ----- | ----------------------------------------------------------------------- |
+| 1.6.3 | [#453] Author should be able to delete headers in userResHeaderDecorator.
 | 1.6.2 | Update node.js versions used by ci. |
 | 1.6.1 | Minor bug fixes and documentation. |
 | 1.6.0 | Do gzip and gunzip aysyncronously.   Test and documentation improvements, dependency updates. |
 | 1.5.1 | Fixes bug in stringifying debug messages. |
 | 1.5.0 | Fixes bug in `filter` signature.  Fix bug in skipToNextHandler, add expressHttpProxy value to user res when skipped.  Add tests for host as ip address. |
-| 1.4.0 | DEPRECATED. Critical bug in the `filter` api.| 
+| 1.4.0 | DEPRECATED. Critical bug in the `filter` api.|
 | 1.3.0 | DEPRECATED. Critical bug in the `filter` api. `filter` now supports Promises.  Update linter to eslint.  |
-| 1.2.0 | Auto-stream when no decorations are made to req/res. Improved docs, fixes issues in maybeSkipToNexthandler,  allow authors to manage error handling. | 
+| 1.2.0 | Auto-stream when no decorations are made to req/res. Improved docs, fixes issues in maybeSkipToNexthandler,  allow authors to manage error handling. |
 | 1.1.0 | Add step to allow response headers to be modified.
 | 1.0.7 | Update dependencies.  Improve docs on promise rejection.   Fix promise rejection on body limit.   Improve debug output. |
 | 1.0.6 | Fixes preserveHostHdr not working, skip userResDecorator on 304, add maybeSkipToNext, test improvements and cleanup. |

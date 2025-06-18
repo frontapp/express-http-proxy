@@ -4,23 +4,23 @@ const qs = require('qs');
 
 var chunkLength = require('../../lib/chunkLength');
 
-function sendProxyRequest(Container) {
+function defaultSendProxyRequest(Container) {
   var req = Container.user.req;
   var bodyContent = Container.proxy.bodyContent;
   var reqOpt = Container.proxy.reqBuilder;
   var options = Container.options;
 
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     var protocol = Container.proxy.requestModule;
-    var proxyReq = Container.proxy.req = protocol.request(reqOpt, function(rsp) {
+    var proxyReq = Container.proxy.req = protocol.request(reqOpt, function (rsp) {
       if (options.stream) {
         Container.proxy.res = rsp;
         return resolve(Container);
       }
 
       var chunks = [];
-      rsp.on('data', function(chunk) { chunks.push(chunk); });
-      rsp.on('end', function() {
+      rsp.on('data', function (chunk) { chunks.push(chunk); });
+      rsp.on('end', function () {
         Container.proxy.res = rsp;
         Container.proxy.resData = Buffer.concat(chunks, chunkLength(chunks));
         resolve(Container);
@@ -28,9 +28,9 @@ function sendProxyRequest(Container) {
       rsp.on('error', reject);
     });
 
-    proxyReq.on('socket', function(socket) {
+    proxyReq.on('socket', function (socket) {
       if (options.timeout) {
-        socket.setTimeout(options.timeout, function() {
+        socket.setTimeout(options.timeout, function () {
           proxyReq.abort();
         });
       }
@@ -41,8 +41,8 @@ function sendProxyRequest(Container) {
     var parseReqBody = (typeof options.parseReqBody === 'function') ? options.parseReqBody(req) : options.parseReqBody;
     // this guy should go elsewhere, down the chain
     if (parseReqBody) {
-    // We are parsing the body ourselves so we need to write the body content
-    // and then manually end the request.
+      // We are parsing the body ourselves so we need to write the body content
+      // and then manually end the request.
 
       //if (bodyContent instanceof Object) {
         //throw new Error
@@ -53,7 +53,10 @@ function sendProxyRequest(Container) {
       if (bodyContent.length) {
         var body = bodyContent;
         var contentType = proxyReq.getHeader('Content-Type');
-        if (contentType === 'x-www-form-urlencoded' || contentType === 'application/x-www-form-urlencoded') {
+        // contentTypes may contain semi-colon
+        // example: "application/x-www-form-urlencoded; charset=UTF-8"
+
+        if (contentType && contentType.match('x-www-form-urlencoded')) {
           try {
             var params = JSON.parse(body);
             body = qs.stringify(params);
@@ -65,17 +68,33 @@ function sendProxyRequest(Container) {
         proxyReq.write(body);
       }
       proxyReq.end();
+    } else if (bodyContent) {
+      proxyReq.write(bodyContent);
+      proxyReq.end();
     } else {
     // Pipe will call end when it has completely read from the request.
+
       req.pipe(proxyReq);
     }
 
+<<<<<<< HEAD
     req.on('aborted', function() {
+=======
+    req.on('aborted', function () {
+    // reject?
+
+>>>>>>> upstream/master
       proxyReq.abort();
       reject();
     });
   });
 }
 
+function sendProxyRequest(Container) {
+  if (Container.options.sendProxyRequest) {
+    return Promise.resolve(Container.options.sendProxyRequest(Container));
+  }
+  return defaultSendProxyRequest(Container);
+}
 
 module.exports = sendProxyRequest;
