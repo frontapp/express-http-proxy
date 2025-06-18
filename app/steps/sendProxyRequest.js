@@ -77,13 +77,7 @@ function defaultSendProxyRequest(Container) {
       req.pipe(proxyReq);
     }
 
-<<<<<<< HEAD
     req.on('aborted', function() {
-=======
-    req.on('aborted', function () {
-    // reject?
-
->>>>>>> upstream/master
       proxyReq.abort();
       reject();
     });
