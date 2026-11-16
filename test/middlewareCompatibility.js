@@ -85,6 +85,22 @@ describe('middleware compatibility', function () {
       .end(done);
   });
 
+  it('should forward a pre-parsed form body when the content type has a charset', function (done) {
+    var app = express();
+    app.use(bodyParser.urlencoded({ extended: false }));
+    app.use(proxy('localhost:12346'));
+    request(app)
+      .post('/poster')
+      .type('form')
+      .set('Content-Type', 'application/x-www-form-urlencoded;charset=UTF-8')
+      .send('mypost=hello&doorknob=wrect')
+      .expect(function (res) {
+        assert.equal(res.body.doorknob, 'wrect');
+        assert.equal(res.body.mypost, 'hello');
+      })
+      .end(done);
+  });
+
   it('should convert req.body to a Buffer when reqAsBuffer is set', function (done) {
     var app = express();
     app.use(bodyParser.json());
