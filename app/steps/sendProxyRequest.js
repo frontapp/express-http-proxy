@@ -4,15 +4,12 @@ const qs = require('qs');
 
 var chunkLength = require('../../lib/chunkLength');
 
+var FORM_MEDIA_TYPES = ['x-www-form-urlencoded', 'application/x-www-form-urlencoded'];
+
 // Match the media type only. Parameters such as charset are valid and common.
-
 function isFormUrlEncoded(contentType) {
-  if (typeof contentType !== 'string') {
-    return false;
-  }
-
-  var mediaType = contentType.split(';')[0].trim().toLowerCase();
-  return mediaType === 'x-www-form-urlencoded' || mediaType === 'application/x-www-form-urlencoded';
+  var mediaType = String(contentType || '').split(';')[0].trim().toLowerCase();
+  return FORM_MEDIA_TYPES.indexOf(mediaType) !== -1;
 }
 
 function sendProxyRequest(Container) {

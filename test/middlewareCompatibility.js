@@ -91,7 +91,6 @@ describe('middleware compatibility', function () {
     app.use(proxy('localhost:12346'));
     request(app)
       .post('/poster')
-      .type('form')
       .set('Content-Type', 'application/x-www-form-urlencoded;charset=UTF-8')
       .send('mypost=hello&doorknob=wrect')
       .expect(function (res) {
